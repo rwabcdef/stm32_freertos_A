@@ -12,7 +12,21 @@
   * This software is licensed under terms that can be found in the LICENSE file
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
+  * 
+  *   * FDTI USB-SERIAL converter
   *
+  * TXD	PA3 (USART2_RX) - orange
+	* RXD	PA2 (USART2_TX) - yellow
+	* GND	GND on STM32 board - black
+  *
+  * # start picocom on Linux to connect to the STM32 board via USB-Serial converter:
+  * picocom -b 19200 --omap crlf --imap lfcrlf /dev/ttyUSB0
+  * (picocom -b 19200 /dev/ttyUSB0)
+  * 
+  * # exit picocom:
+  * Exit with Ctrl-A then Ctrl-X.
+  *
+  * 
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -21,6 +35,9 @@
 #include "cmsis_os.h"
 #include "usb_host.h"
 #include "lib.hpp"
+#include "timer2.h"
+#include "uart2.h"
+#include <cstdio>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -63,6 +80,13 @@ const osThreadAttr_t ledTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for uartTask */
+osThreadId_t uartTaskHandle;
+const osThreadAttr_t uartTask_attributes = {
+  .name = "uartTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -76,6 +100,7 @@ static void MX_SPI1_Init(void);
 void MX_USB_HOST_Process(void);
 void StartDefaultTask(void *argument);
 void StartLedTask(void *argument);
+void startUartTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -120,7 +145,8 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
-
+  timer2_init();
+  uart2_init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -149,6 +175,9 @@ int main(void)
   /* creation of ledTask */
   ledTaskHandle = osThreadNew(StartLedTask, NULL, &ledTask_attributes);
 
+  /* creation of uartTask */
+  uartTaskHandle = osThreadNew(startUartTask, NULL, &uartTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -168,6 +197,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
+
 
     /* USER CODE BEGIN 3 */
   }
@@ -481,12 +512,48 @@ void StartLedTask(void *argument)
   // set orange led on
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = pdMS_TO_TICKS(500); // 500 ms period
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Green LED
+
+    // Wait for the next cycle, 100ms from the last wake time
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END StartLedTask */
+}
+
+void startUartTask(void *argument)
+{
+  /* USER CODE BEGIN startUartTask */
+  // set red led on
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+
+  char rxData[UART2__BUFFER_LEN];
+  char txData[UART2__BUFFER_LEN + 8]; // "echo: " + payload + "\n"
+  uint16_t rxLen;
+
+  /* Infinite loop */
+  for(;;)
+  {
+    if (uart2_frameRx(rxData, &rxLen))
+    {
+      // trim the trailing CR/LF that terminated the frame
+      while (rxLen > 0 && (rxData[rxLen - 1] == '\n' || rxData[rxLen - 1] == '\r'))
+      {
+        rxLen--;
+      }
+
+      int txLen = snprintf(txData, sizeof(txData), "echo: %.*s\n", (int)rxLen, rxData);
+      HAL_UART_Transmit(&huart2, (uint8_t *)txData, txLen, HAL_MAX_DELAY);
+    }
+
+    osDelay(10);
+  }
+  /* USER CODE END startUartTask */
 }
 
 /**

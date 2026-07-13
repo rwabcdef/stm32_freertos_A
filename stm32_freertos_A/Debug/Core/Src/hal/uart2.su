@@ -1,0 +1,4 @@
+../Core/Src/hal/uart2.c:18:6:USART2_IRQHandler	8	static
+../Core/Src/hal/uart2.c:24:6:HAL_UART_RxCpltCallback	16	static
+../Core/Src/hal/uart2.c:46:6:uart2_init	40	static
+../Core/Src/hal/uart2.c:85:6:uart2_frameRx	24	static
