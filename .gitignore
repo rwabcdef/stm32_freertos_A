@@ -67,3 +67,8 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# STM32CubeIDE build outputs
+*.elf
+*.list
+*.map
