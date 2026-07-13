@@ -532,6 +532,9 @@ void startUartTask(void *argument)
   // set red led on
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
 
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10 ms period
+
   char rxData[UART2__BUFFER_LEN];
   char txData[UART2__BUFFER_LEN + 8]; // "echo: " + payload + "\n"
   uint16_t rxLen;
@@ -551,7 +554,8 @@ void startUartTask(void *argument)
       HAL_UART_Transmit(&huart2, (uint8_t *)txData, txLen, HAL_MAX_DELAY);
     }
 
-    osDelay(10);
+    //osDelay(10);
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END startUartTask */
 }
