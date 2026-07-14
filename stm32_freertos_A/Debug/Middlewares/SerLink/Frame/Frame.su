@@ -1,0 +1,13 @@
+../Middlewares/SerLink/Frame/Frame.cpp:16:1:SerLink::Frame::Frame()	16	static
+../Middlewares/SerLink/Frame/Frame.cpp:25:1:SerLink::Frame::Frame(char*, char, uint16_t, uint16_t, char*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:33:6:void SerLink::Frame::setProtocol(char*)	16	static
+../Middlewares/SerLink/Frame/Frame.cpp:38:6:void SerLink::Frame::setData(uint16_t, char*)	32	static
+../Middlewares/SerLink/Frame/Frame.cpp:56:6:void SerLink::Frame::toString(char*, uint8_t*)	32	static
+../Middlewares/SerLink/Frame/Frame.cpp:86:6:static void SerLink::Frame::fromString(char*, SerLink::Frame*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:102:6:void SerLink::Frame::copy(SerLink::Frame*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:116:6:static void SerLink::Frame::incRollCode(uint16_t*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:131:6:void SerLink::Frame::incRollCode()	16	static
+../Middlewares/SerLink/Frame/Frame.cpp:136:6:static void SerLink::Frame::int3dToStr(uint16_t, char*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:147:6:static void SerLink::Frame::str3dToInt(char*, uint16_t*)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:156:9:static uint8_t SerLink::Frame::digitCharValue(char)	24	static
+../Middlewares/SerLink/Frame/Frame.cpp:169:6:void SerLink::Frame::toDebugString(char*)	24	static

@@ -1,0 +1,2 @@
+../Middlewares/SerLink/StateMachine/StateMachine.cpp:10:9:uint8_t StateMachine::getCurrentState()	16	static
+../Middlewares/SerLink/StateMachine/StateMachine.cpp:15:7:char* StateMachine::getCurrentStateName()	16	static

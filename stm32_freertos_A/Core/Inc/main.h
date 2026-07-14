@@ -28,6 +28,8 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
+#include "queue.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -36,6 +38,15 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+
+#define UART2__BUFFER_LEN 64
+#define UART2_QUEUE_LENGTH 5
+
+typedef struct {
+  char data[UART2__BUFFER_LEN];
+  uint16_t len;
+  uint8_t type; // Indicates the type of message
+} UartMessage_t;
 
 /* USER CODE END ET */
 
@@ -55,6 +66,10 @@ void Error_Handler(void);
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
+
+extern QueueHandle_t uart2Queue;
+extern char uart2QueueStorageArea[];
+extern StaticQueue_t uart2StaticQueue;
 
 /* Private defines -----------------------------------------------------------*/
 #define CS_I2C_SPI_Pin GPIO_PIN_3

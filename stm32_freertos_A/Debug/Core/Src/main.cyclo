@@ -1,12 +1,15 @@
-../Core/Src/main.cpp:118:5:int main()	1
-../Core/Src/main.cpp:212:6:void SystemClock_Config()	3
-../Core/Src/main.cpp:258:13:void MX_I2C1_Init()	2
-../Core/Src/main.cpp:292:13:void MX_I2S3_Init()	2
-../Core/Src/main.cpp:326:13:void MX_SPI1_Init()	2
-../Core/Src/main.cpp:364:13:void MX_GPIO_Init()	1
-../Core/Src/main.cpp:458:6:void vApplicationStackOverflowHook(TaskHandle_t, signed char*)	1
-../Core/Src/main.cpp:469:6:void vApplicationMallocFailedHook()	1
-../Core/Src/main.cpp:486:6:void StartDefaultTask(void*)	1
-../Core/Src/main.cpp:510:6:void StartLedTask(void*)	1
-../Core/Src/main.cpp:529:6:void startUartTask(void*)	5
-../Core/Src/main.cpp:567:6:void Error_Handler()	1
+../Core/Src/main.cpp:138:5:int main()	1
+../Core/Src/main.cpp:238:6:void SystemClock_Config()	3
+../Core/Src/main.cpp:284:13:void MX_I2C1_Init()	2
+../Core/Src/main.cpp:318:13:void MX_I2S3_Init()	2
+../Core/Src/main.cpp:352:13:void MX_SPI1_Init()	2
+../Core/Src/main.cpp:390:13:void MX_GPIO_Init()	1
+../Core/Src/main.cpp:484:6:void vApplicationStackOverflowHook(TaskHandle_t, signed char*)	1
+../Core/Src/main.cpp:495:6:void vApplicationMallocFailedHook()	1
+../Core/Src/main.cpp:512:6:void StartDefaultTask(void*)	1
+../Core/Src/main.cpp:536:6:void StartLedTask(void*)	1
+../Core/Src/main.cpp:555:6:void startUartTask(void*)	4
+../Core/Src/main.cpp:615:6:void startWriter0Task(void*)	1
+../Core/Src/main.cpp:631:6:void Error_Handler()	1
+../Core/Src/main.cpp:644:1:void __static_initialization_and_destruction_0()	1
+../Core/Src/main.cpp:644:1:cpp)	1

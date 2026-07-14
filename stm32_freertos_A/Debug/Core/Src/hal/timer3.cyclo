@@ -1,0 +1,4 @@
+../Core/Src/hal/timer3.c:12:6:timer3_init	2
+../Core/Src/hal/timer3.c:40:6:timer3_startOneShot	1
+../Core/Src/hal/timer3.c:47:6:TIM3_IRQHandler	1
+../Core/Src/hal/timer3.c:52:6:timer3_handlePeriodElapsed	1

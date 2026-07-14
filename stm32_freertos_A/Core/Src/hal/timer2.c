@@ -4,6 +4,7 @@
 
 #include "main.h"
 #include "timer2.h"
+#include "timer3.h"
 
 volatile uint16_t g_timer2Tick = 0;
 
@@ -36,5 +37,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   if (htim->Instance == TIM2)
   {
     g_timer2Tick++;
+  }
+  else if (htim->Instance == TIM3)
+  {
+    timer3_handlePeriodElapsed();
   }
 }

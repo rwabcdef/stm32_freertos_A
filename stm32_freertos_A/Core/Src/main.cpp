@@ -20,8 +20,9 @@
 	* GND	GND on STM32 board - black
   *
   * # start picocom on Linux to connect to the STM32 board via USB-Serial converter:
-  * picocom -b 19200 --omap crlf --imap lfcrlf /dev/ttyUSB0
-  * (picocom -b 19200 /dev/ttyUSB0)
+  * picocom -b 115200 --omap crlf --imap lfcrlf /dev/ttyUSB0
+  * picocom -b 115200 --omap crlf --imap lfcrlf /dev/ttyUSB0
+  * (picocom -b 115200 /dev/ttyUSB0)
   * 
   * # exit picocom:
   * Exit with Ctrl-A then Ctrl-X.
@@ -32,11 +33,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 #include "usb_host.h"
 #include "lib.hpp"
 #include "timer2.h"
+#include "timer3.h"
 #include "uart2.h"
+#include "queue.h"
+#include "Writer.hpp"
 #include <cstdio>
 
 /* Private includes ----------------------------------------------------------*/
@@ -66,6 +69,15 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 
+//--------------------------------------------------------------
+// Uart2 queue for FreeRTOS
+StaticQueue_t uart2StaticQueue;
+char uart2QueueStorageArea[UART2_QUEUE_LENGTH * sizeof(UartMessage_t)];
+QueueHandle_t uart2Queue;
+
+SerLink::Writer writer0;
+//--------------------------------------------------------------
+
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -87,6 +99,13 @@ const osThreadAttr_t uartTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for writer0Task */
+osThreadId_t writer0TaskHandle;
+const osThreadAttr_t writer0Task_attributes = {
+  .name = "writer0Task",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -101,6 +120,7 @@ void MX_USB_HOST_Process(void);
 void StartDefaultTask(void *argument);
 void StartLedTask(void *argument);
 void startUartTask(void *argument);
+void startWriter0Task(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -129,6 +149,8 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+  
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -146,6 +168,7 @@ int main(void)
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
   timer2_init();
+  timer3_init();
   uart2_init();
   /* USER CODE END 2 */
 
@@ -178,6 +201,9 @@ int main(void)
   /* creation of uartTask */
   uartTaskHandle = osThreadNew(startUartTask, NULL, &uartTask_attributes);
 
+  /* creation of writer0Task */
+  writer0TaskHandle = osThreadNew(startWriter0Task, NULL, &writer0Task_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -186,7 +212,7 @@ int main(void)
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
 
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); // green led on
+  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); // green led on
 
   /* Start scheduler */
   osKernelStart();
@@ -487,8 +513,8 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   // set green led on
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // orange
+  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // orange
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET); // red
 
   /* Infinite loop */
@@ -510,7 +536,7 @@ void StartDefaultTask(void *argument)
 void StartLedTask(void *argument)
 {
   // set orange led on
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
   TickType_t xLastWakeTime;
   const TickType_t xFrequency = pdMS_TO_TICKS(500); // 500 ms period
@@ -518,7 +544,7 @@ void StartLedTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Green LED
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Orange LED
 
     // Wait for the next cycle, 100ms from the last wake time
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -530,7 +556,7 @@ void startUartTask(void *argument)
 {
   /* USER CODE BEGIN startUartTask */
   // set red led on
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
 
   TickType_t xLastWakeTime;
   const TickType_t xFrequency = pdMS_TO_TICKS(10); // 10 ms period
@@ -539,25 +565,63 @@ void startUartTask(void *argument)
   char txData[UART2__BUFFER_LEN + 8]; // "echo: " + payload + "\n"
   uint16_t rxLen;
 
+  UartMessage_t rxMsg;
+
+  SerLink::Frame txFrame("TST01", SerLink::Frame::TYPE_UNIDIRECTION, 407, 0, nullptr);
+
   /* Infinite loop */
   for(;;)
   {
-    if (uart2_frameRx(rxData, &rxLen))
+    if (xQueueReceive(uart2Queue, &rxMsg, portMAX_DELAY) == pdTRUE)
     {
-      // trim the trailing CR/LF that terminated the frame
-      while (rxLen > 0 && (rxData[rxLen - 1] == '\n' || rxData[rxLen - 1] == '\r'))
+      if((rxMsg.type == UART_MSG_TYPE__FRAME_RX) && (rxMsg.len > 1))
       {
-        rxLen--;
-      }
+        // turn on green led for quick flash to indicate a message was received;
+        // timer3 will switch it back off after 200 ms
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+        timer3_startOneShot();
 
-      int txLen = snprintf(txData, sizeof(txData), "echo: %.*s\n", (int)rxLen, rxData);
-      HAL_UART_Transmit(&huart2, (uint8_t *)txData, txLen, HAL_MAX_DELAY);
+        txFrame.setData(rxMsg.len - 1, rxMsg.data);
+        writer0.sendFrame(&txFrame);
+
+        txFrame.incRollCode();
+
+        // int txLen = snprintf(txData, sizeof(txData), "echo: %.*s\n", (int)rxMsg.len, rxMsg.data);
+
+        // HAL_UART_Transmit(&huart2, (uint8_t *)txData, txLen, HAL_MAX_DELAY);
+      }
+      
     }
 
-    //osDelay(10);
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
-  }
+    // if (uart2_frameRx(rxData, &rxLen))
+    // {
+    //   // trim the trailing CR/LF that terminated the frame
+    //   while (rxLen > 0 && (rxData[rxLen - 1] == '\n' || rxData[rxLen - 1] == '\r'))
+    //   {
+    //     rxLen--;
+    //   }
+
+    //   int txLen = snprintf(txData, sizeof(txData), "echo: %.*s\n", (int)rxLen, rxData);
+    //   HAL_UART_Transmit(&huart2, (uint8_t *)txData, txLen, HAL_MAX_DELAY);
+    // }
+
+    // //osDelay(10);
+    // vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+  } // end of infinite loop
   /* USER CODE END startUartTask */
+}
+
+void startWriter0Task(void *argument)
+{
+  /* USER CODE BEGIN startWriter0Task */
+  writer0.init(WRITER_CONFIG__WRITER0_ID);
+
+  for(;;)
+  {
+    writer0.run();
+  }
+  /* USER CODE END startWriter0Task */
 }
 
 /**
@@ -568,6 +632,10 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+
+  // set red led on
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+
   __disable_irq();
   while (1)
   {

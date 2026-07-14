@@ -1,0 +1,4 @@
+../Core/Src/hal/timer3.c:12:6:timer3_init	40	static
+../Core/Src/hal/timer3.c:40:6:timer3_startOneShot	8	static
+../Core/Src/hal/timer3.c:47:6:TIM3_IRQHandler	8	static
+../Core/Src/hal/timer3.c:52:6:timer3_handlePeriodElapsed	8	static
