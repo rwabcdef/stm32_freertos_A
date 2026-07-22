@@ -29,6 +29,7 @@ public:
   static const int INDEX_START_DATALEN = INDEX_START_ROLLCODE + LEN_ROLLCODE;
   static const int INDEX_START_DATA = INDEX_START_DATALEN + LEN_DATALEN;
   static const int MAX_DATALEN = 64;
+  static const int MAX_FRAME_LEN = LEN_HEADER + MAX_DATALEN + 2; // +2 for CR/LF
 
   // DataLen (Ack code) return codes
   static const int ACK_OK = 900;

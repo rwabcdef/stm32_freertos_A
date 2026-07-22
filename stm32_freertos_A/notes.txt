@@ -1,0 +1,15 @@
+
+-------------------------------------------------------------------------------------------
+SerLink
+
+--------------------------------------------
+uart2
+
+---------------
+Rx
+
+Rx is interrupt driven.
+HAL_UART_RxCpltCallback is called when a char is received.
+A frame (when \n is received) is put on uart2Queue.
+
+

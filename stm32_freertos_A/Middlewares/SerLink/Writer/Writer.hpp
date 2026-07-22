@@ -34,7 +34,7 @@
    // by ackWait() to check the ack's protocol matches).
    Frame txFrame;
 
-   char txBuffer[TX_BUFFER_LEN];
+   char txBuffer[Frame::MAX_FRAME_LEN];
 
    StaticQueue_t txStaticQueue;
    uint8_t txQueueStorageArea[TX_QUEUE_LENGTH * sizeof(Frame)];
