@@ -45,6 +45,7 @@ Drivers/STM32F4xx_HAL_Driver/Src \
 Middlewares/ST/STM32_USB_Host_Library/Class/CDC/Src \
 Middlewares/ST/STM32_USB_Host_Library/Core/Src \
 Middlewares/SerLink/Frame \
+Middlewares/SerLink/Reader \
 Middlewares/SerLink/StateMachine \
 Middlewares/SerLink/Writer \
 Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 \

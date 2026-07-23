@@ -17,6 +17,7 @@ RM := rm -rf
 -include Middlewares/Third_Party/FreeRTOS/Source/subdir.mk
 -include Middlewares/SerLink/Writer/subdir.mk
 -include Middlewares/SerLink/StateMachine/subdir.mk
+-include Middlewares/SerLink/Reader/subdir.mk
 -include Middlewares/SerLink/Frame/subdir.mk
 -include Middlewares/ST/STM32_USB_Host_Library/Core/Src/subdir.mk
 -include Middlewares/ST/STM32_USB_Host_Library/Class/CDC/Src/subdir.mk

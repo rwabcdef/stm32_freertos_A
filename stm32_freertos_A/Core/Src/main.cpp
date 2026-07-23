@@ -13,6 +13,13 @@
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
   * 
+  * 
+  * Built in LEDS:
+  *   Green: PD12
+  *   Orange: PD13
+  *   Red:    PD14
+  *   Blue:   PD15
+  * 
   *   * FDTI USB-SERIAL converter
   *
   * TXD	PA3 (USART2_RX) - orange
@@ -27,6 +34,7 @@
   * # exit picocom:
   * Exit with Ctrl-A then Ctrl-X.
   *
+  * DBG01T347005hello       (Ctrl+C, then right click in the picocom window to paste the text)
   * 
   ******************************************************************************
   */
@@ -39,7 +47,8 @@
 #include "timer3.h"
 #include "uart2.h"
 #include "queue.h"
-#include "Writer.hpp"
+#include "Reader.hpp"
+#include "SerLink.hpp"
 #include <cstdio>
 
 /* Private includes ----------------------------------------------------------*/
@@ -70,12 +79,24 @@ I2S_HandleTypeDef hi2s3;
 SPI_HandleTypeDef hspi1;
 
 //--------------------------------------------------------------
-// Uart2 queue for FreeRTOS
+// Uart2 Rx queue for FreeRTOS - created in uart2_init()
 StaticQueue_t uart2StaticQueue;
 char uart2QueueStorageArea[UART2_QUEUE_LENGTH * sizeof(UartMessage_t)];
 QueueHandle_t uart2Queue;
 
+// Uart2 SerLink writer and reader
 SerLink::Writer writer0;
+SerLink::Reader reader0(READER_CONFIG__READER0_ID);
+
+// SerLink0 Rx queue - populated by reader0 - created in startSerLink0Task()
+#define SERLINK0_RX_QUEUE_LENGTH 5
+StaticQueue_t serlink0RxStaticQueue;
+char serlink0RxQueueStorageArea[SERLINK0_RX_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
+QueueHandle_t serlink0RxQueue;
+
+
+bool greenLedFlash = false;
+bool blueLedFlash = false;
 //--------------------------------------------------------------
 
 /* Definitions for defaultTask */
@@ -106,6 +127,23 @@ const osThreadAttr_t writer0Task_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+
+/* Definitions for reader0Task */
+osThreadId_t reader0TaskHandle;
+const osThreadAttr_t reader0Task_attributes = {
+  .name = "reader0Task",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
+/* Definitions for serLink0Task */
+osThreadId_t serLink0TaskHandle;
+const osThreadAttr_t serLink0Task_attributes = {
+  .name = "serLink0Task",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -121,6 +159,8 @@ void StartDefaultTask(void *argument);
 void StartLedTask(void *argument);
 void startUartTask(void *argument);
 void startWriter0Task(void *argument);
+void startReader0Task(void *argument);
+void startSerLink0Task(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -199,10 +239,14 @@ int main(void)
   ledTaskHandle = osThreadNew(StartLedTask, NULL, &ledTask_attributes);
 
   /* creation of uartTask */
-  uartTaskHandle = osThreadNew(startUartTask, NULL, &uartTask_attributes);
+  //uartTaskHandle = osThreadNew(startUartTask, NULL, &uartTask_attributes);
 
   /* creation of writer0Task */
-  writer0TaskHandle = osThreadNew(startWriter0Task, NULL, &writer0Task_attributes);
+  //writer0TaskHandle = osThreadNew(startWriter0Task, NULL, &writer0Task_attributes);
+
+  reader0TaskHandle = osThreadNew(startReader0Task, NULL, &reader0Task_attributes);
+
+  serLink0TaskHandle = osThreadNew(startSerLink0Task, NULL, &serLink0Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -538,13 +582,39 @@ void StartLedTask(void *argument)
   // set orange led on
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
 
+  uint8_t orangeCount = 0;
+  bool greenLedClear = false;
+  bool blueLedClear = false;
   TickType_t xLastWakeTime;
-  const TickType_t xFrequency = pdMS_TO_TICKS(500); // 500 ms period
+  const TickType_t xFrequency = pdMS_TO_TICKS(250); // 500 ms period
 
   /* Infinite loop */
   for(;;)
   {
-    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Orange LED
+    if(++orangeCount >= 2){
+      orangeCount = 0;
+      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Orange LED
+    }
+
+    if(greenLedFlash){
+      greenLedFlash = false;
+      greenLedClear = true;
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); // Green LED
+    }
+    else if(greenLedClear){
+      greenLedClear = false;
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET); // Green LED
+    }
+    
+    if(blueLedFlash){
+      blueLedFlash = false;
+      blueLedClear = true;
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET); // Blue LED
+    }
+    else if(blueLedClear){
+      blueLedClear = false;
+      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET); // Blue LED
+    }
 
     // Wait for the next cycle, 100ms from the last wake time
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -622,6 +692,38 @@ void startWriter0Task(void *argument)
     writer0.run();
   }
   /* USER CODE END startWriter0Task */
+}
+
+void startReader0Task(void *argument)
+{
+  /* USER CODE BEGIN startReader0Task */
+  reader0.init(uart2Queue, &writer0, serlink0RxQueue);
+
+  for(;;)
+  {
+    reader0.run();
+  }
+  /* USER CODE END startReader0Task */
+}
+
+void startSerLink0Task(void *argument)
+{
+  /* USER CODE BEGIN startSerLink0Task */
+  serlink0RxQueue = xQueueCreateStatic(SERLINK0_RX_QUEUE_LENGTH, sizeof(SerLink::FrameMsg), (uint8_t*)serlink0RxQueueStorageArea, &serlink0RxStaticQueue);
+  for(;;)
+  {
+    SerLink::FrameMsg rxFrameMsg;
+    if (xQueueReceive(serlink0RxQueue, &rxFrameMsg, portMAX_DELAY) == pdTRUE)
+    {
+      if(rxFrameMsg.type == SerLink::FrameMsg::TYPE_RX)
+      {
+        // process the received frame
+
+        blueLedFlash = true; // flash blue led to indicate a message was received
+      }
+    }
+  }
+  /* USER CODE END startSerLink0Task */
 }
 
 /**

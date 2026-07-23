@@ -1,15 +1,18 @@
-../Core/Src/main.cpp:138:5:int main()	1
-../Core/Src/main.cpp:238:6:void SystemClock_Config()	3
-../Core/Src/main.cpp:284:13:void MX_I2C1_Init()	2
-../Core/Src/main.cpp:318:13:void MX_I2S3_Init()	2
-../Core/Src/main.cpp:352:13:void MX_SPI1_Init()	2
-../Core/Src/main.cpp:390:13:void MX_GPIO_Init()	1
-../Core/Src/main.cpp:484:6:void vApplicationStackOverflowHook(TaskHandle_t, signed char*)	1
-../Core/Src/main.cpp:495:6:void vApplicationMallocFailedHook()	1
-../Core/Src/main.cpp:512:6:void StartDefaultTask(void*)	1
-../Core/Src/main.cpp:536:6:void StartLedTask(void*)	1
-../Core/Src/main.cpp:555:6:void startUartTask(void*)	4
-../Core/Src/main.cpp:615:6:void startWriter0Task(void*)	1
-../Core/Src/main.cpp:631:6:void Error_Handler()	1
-../Core/Src/main.cpp:644:1:void __static_initialization_and_destruction_0()	1
-../Core/Src/main.cpp:644:1:cpp)	1
+../Core/Src/main.cpp:178:5:int main()	1
+../Core/Src/main.cpp:282:6:void SystemClock_Config()	3
+../Core/Src/main.cpp:328:13:void MX_I2C1_Init()	2
+../Core/Src/main.cpp:362:13:void MX_I2S3_Init()	2
+../Core/Src/main.cpp:396:13:void MX_SPI1_Init()	2
+../Core/Src/main.cpp:434:13:void MX_GPIO_Init()	1
+../Core/Src/main.cpp:528:6:void vApplicationStackOverflowHook(TaskHandle_t, signed char*)	1
+../Core/Src/main.cpp:539:6:void vApplicationMallocFailedHook()	1
+../Core/Src/main.cpp:556:6:void StartDefaultTask(void*)	1
+../Core/Src/main.cpp:580:6:void StartLedTask(void*)	6
+../Core/Src/main.cpp:625:6:void startUartTask(void*)	4
+../Core/Src/main.cpp:685:6:void startWriter0Task(void*)	1
+../Core/Src/main.cpp:697:6:void startReader0Task(void*)	1
+../Middlewares/SerLink/SerLink.hpp:15:9:SerLink::FrameMsg::FrameMsg()	1
+../Core/Src/main.cpp:709:6:void startSerLink0Task(void*)	3
+../Core/Src/main.cpp:733:6:void Error_Handler()	1
+../Core/Src/main.cpp:746:1:void __static_initialization_and_destruction_0()	1
+../Core/Src/main.cpp:746:1:cpp)	1

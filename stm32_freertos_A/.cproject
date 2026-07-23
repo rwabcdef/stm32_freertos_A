@@ -78,6 +78,7 @@
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Frame"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Writer"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Reader"/>
+									<listOptionValue builtIn="false" value="../Middlewares/SerLink/"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/App"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/Target"/>
 									<listOptionValue builtIn="false" value="../Drivers/STM32F4xx_HAL_Driver/Inc"/>

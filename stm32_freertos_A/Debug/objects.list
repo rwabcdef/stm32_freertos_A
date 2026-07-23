@@ -38,6 +38,7 @@
 "./Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_ioreq.o"
 "./Middlewares/ST/STM32_USB_Host_Library/Core/Src/usbh_pipes.o"
 "./Middlewares/SerLink/Frame/Frame.o"
+"./Middlewares/SerLink/Reader/Reader.o"
 "./Middlewares/SerLink/StateMachine/StateMachine.o"
 "./Middlewares/SerLink/Writer/Writer.o"
 "./Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.o"

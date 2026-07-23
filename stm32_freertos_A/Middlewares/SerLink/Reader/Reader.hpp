@@ -11,6 +11,7 @@
 #include "main.h"
 #include "Reader_config.hpp"
 #include "StateMachine.hpp"
+#include "SerLink.hpp"
 #include "Writer.hpp"
 #include "Frame.hpp"
 #include "FreeRTOS.h"
@@ -51,9 +52,9 @@
      //const uint8_t TXACKWAIT = 2;
      uint8_t id;
     //  bool rxFlag;
-     Writer* writer;
-     QueueHandle_t uartRxQueue; // Queue for receiving messages from the UART layer
-     QueueHandle_t consumerQueue; // Queue for passing received frames to the consumer
+     Writer* writer = nullptr;
+     QueueHandle_t uartRxQueue = nullptr; // Queue for receiving messages from the UART layer
+     QueueHandle_t consumerQueue = nullptr; // Queue for passing received frames to the consumer
     //  char* rxBuffer;
     //  char* ackBuffer;
     //  uint8_t bufferLen;
@@ -66,6 +67,7 @@
 
  UartMessage_t rxMsg;
      Frame rxFrame;
+     FrameMsg rxFrameMsg;
      Frame ackFrame;
      TickType_t ackDelayStartTick; // captured in idle() at the point of transition to ACKDELAY
      HandlerRegistration handlerRegistrations[READER_CONFIG__MAX_NUM_INSTANT_HANDLERS];
@@ -97,9 +99,9 @@
  public:
     //  Reader(uint8_t id, char* rxBuffer, char* ackBuffer, uint8_t bufferLen,
     //      Frame* rxFrame, Frame* ackFrame, Writer* writer = nullptr); // , DebugPrint* debugPrint = nullptr
-    Reader(uint8_t id, QueueHandle_t uartRxQueue, Writer* writer = nullptr,
-      QueueHandle_t consumerQueue = nullptr); // , DebugPrint* debugPrint = nullptr
-   void init();
+    Reader(uint8_t id); // , DebugPrint* debugPrint = nullptr
+   void init(QueueHandle_t uartRxQueue, Writer* writer = nullptr,
+    QueueHandle_t consumerQueue = nullptr);
      void run();
      bool registerInstantCallback(char* protocol, readHandler handler);
      bool getRxFrame(Frame* rxFrame);

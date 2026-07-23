@@ -14,10 +14,16 @@
 
 using namespace SerLink;
 
-Reader::Reader(uint8_t id, QueueHandle_t uartRxQueue, Writer* writer, QueueHandle_t consumerQueue)
-: id(id), writer(writer), uartRxQueue(uartRxQueue), consumerQueue(consumerQueue)
+Reader::Reader(uint8_t id): id(id)
 {
   this->currentState = IDLE;
+}
+
+void Reader::init(QueueHandle_t uartRxQueue, Writer* writer, QueueHandle_t consumerQueue)
+{
+  this->uartRxQueue = uartRxQueue;
+  this->writer = writer;
+  this->consumerQueue = consumerQueue;
 }
 
 void Reader::run()
@@ -51,7 +57,10 @@ uint8_t Reader::idle()
       // pass the received frame to the consumer queue if it exists
       if(this->consumerQueue != nullptr)
       {
-        xQueueSend(this->consumerQueue, &this->rxFrame, 0);
+        this->rxFrameMsg.frame.copy(&this->rxFrame);
+        this->rxFrameMsg.type = FrameMsg::TYPE_RX;
+
+        xQueueSend(this->consumerQueue, &this->rxFrameMsg, 0);
       }
 
       // capture the exact point of transition - ackDelay() waits an
@@ -65,7 +74,10 @@ uint8_t Reader::idle()
       // pass the received frame to the consumer queue if it exists
       if(this->consumerQueue != nullptr)
       {
-        xQueueSend(this->consumerQueue, &this->rxFrame, 0);
+        this->rxFrameMsg.frame.copy(&this->rxFrame);
+        this->rxFrameMsg.type = FrameMsg::TYPE_RX;
+
+        xQueueSend(this->consumerQueue, &this->rxFrameMsg, 0);
       }
       return IDLE;
     }
