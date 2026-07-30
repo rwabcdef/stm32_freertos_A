@@ -49,6 +49,8 @@
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Frame"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Writer"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Reader"/>
+									<listOptionValue builtIn="false" value="../Components/Button"/>
+									<listOptionValue builtIn="false" value="../Components/Led"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/App"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/Target"/>
 									<listOptionValue builtIn="false" value="../Drivers/STM32F4xx_HAL_Driver/Inc"/>
@@ -79,6 +81,8 @@
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Writer"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Reader"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/"/>
+									<listOptionValue builtIn="false" value="../Components/Button"/>
+									<listOptionValue builtIn="false" value="../Components/Led"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/App"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/Target"/>
 									<listOptionValue builtIn="false" value="../Drivers/STM32F4xx_HAL_Driver/Inc"/>
@@ -122,6 +126,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Components"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

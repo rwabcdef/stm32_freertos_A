@@ -15,7 +15,8 @@ namespace SerLink {
   class FrameMsg {
     public:
       static const uint8_t TYPE_RX = 0;
-      static const uint8_t TYPE_ACK = 1;
+      static const uint8_t TYPE_TX = 1;
+      static const uint8_t TYPE_ACK = 2;
 
       Frame frame;
       uint8_t type;

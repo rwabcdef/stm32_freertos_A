@@ -13,12 +13,14 @@
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
   * 
+  * C/C++ FreeRtos app on: STM32F407G-DISC1
   * 
   * Built in LEDS:
   *   Green: PD12
   *   Orange: PD13
   *   Red:    PD14
   *   Blue:   PD15
+  * 
   * 
   *   * FDTI USB-SERIAL converter
   *
@@ -49,6 +51,8 @@
 #include "queue.h"
 #include "Reader.hpp"
 #include "SerLink.hpp"
+#include "Button.hpp"
+#include "Led.hpp"
 #include <cstdio>
 
 /* Private includes ----------------------------------------------------------*/
@@ -88,15 +92,22 @@ QueueHandle_t uart2Queue;
 SerLink::Writer writer0;
 SerLink::Reader reader0(READER_CONFIG__READER0_ID);
 
-// SerLink0 Rx queue - populated by reader0 - created in startSerLink0Task()
-#define SERLINK0_RX_QUEUE_LENGTH 5
-StaticQueue_t serlink0RxStaticQueue;
-char serlink0RxQueueStorageArea[SERLINK0_RX_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
-QueueHandle_t serlink0RxQueue;
+// SerLink0 Rx and Tx queue - populated by reader0 (received frames)
+// and application code (frames to be sent), respectively.
+// - created in startSerLink0Task()
+#define SERLINK0_QUEUE_LENGTH 5
+StaticQueue_t serlink0StaticQueue;
+char serlink0QueueStorageArea[SERLINK0_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
+QueueHandle_t serlink0Queue;
 
+// User button (PA0), active high
+Button button0(B1_GPIO_Port, B1_Pin, true);
 
-bool greenLedFlash = false;
-bool blueLedFlash = false;
+// Board LEDs (GPIOD)
+Led ledGreen(GPIOD, GPIO_PIN_12);
+Led ledOrange(GPIOD, GPIO_PIN_13);
+Led ledRed(GPIOD, GPIO_PIN_14);
+Led ledBlue(GPIOD, GPIO_PIN_15);
 //--------------------------------------------------------------
 
 /* Definitions for defaultTask */
@@ -144,6 +155,14 @@ const osThreadAttr_t serLink0Task_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 
+/* Definitions for buttonTask */
+osThreadId_t buttonTaskHandle;
+const osThreadAttr_t buttonTask_attributes = {
+  .name = "buttonTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -161,6 +180,7 @@ void startUartTask(void *argument);
 void startWriter0Task(void *argument);
 void startReader0Task(void *argument);
 void startSerLink0Task(void *argument);
+void startButtonTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -229,6 +249,8 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  serlink0Queue = xQueueCreateStatic(SERLINK0_QUEUE_LENGTH, sizeof(SerLink::FrameMsg), (uint8_t*)serlink0QueueStorageArea, &serlink0StaticQueue);
+  
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -242,11 +264,13 @@ int main(void)
   //uartTaskHandle = osThreadNew(startUartTask, NULL, &uartTask_attributes);
 
   /* creation of writer0Task */
-  //writer0TaskHandle = osThreadNew(startWriter0Task, NULL, &writer0Task_attributes);
+  writer0TaskHandle = osThreadNew(startWriter0Task, NULL, &writer0Task_attributes);
 
   reader0TaskHandle = osThreadNew(startReader0Task, NULL, &reader0Task_attributes);
 
   serLink0TaskHandle = osThreadNew(startSerLink0Task, NULL, &serLink0Task_attributes);
+
+  buttonTaskHandle = osThreadNew(startButtonTask, NULL, &buttonTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -480,7 +504,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
@@ -576,47 +600,23 @@ void StartDefaultTask(void *argument)
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartLedTask */
+/* USER
+ * CODE END Header_StartLedTask */
 void StartLedTask(void *argument)
 {
-  // set orange led on
-  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xFrequency = pdMS_TO_TICKS(Led::PERIOD_MS);
 
-  uint8_t orangeCount = 0;
-  bool greenLedClear = false;
-  bool blueLedClear = false;
-  TickType_t xLastWakeTime;
-  const TickType_t xFrequency = pdMS_TO_TICKS(250); // 500 ms period
+  ledOrange.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
 
   /* Infinite loop */
   for(;;)
   {
-    if(++orangeCount >= 2){
-      orangeCount = 0;
-      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Orange LED
-    }
+    ledGreen.run();
+    ledOrange.run();
+    ledRed.run();
+    ledBlue.run();
 
-    if(greenLedFlash){
-      greenLedFlash = false;
-      greenLedClear = true;
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); // Green LED
-    }
-    else if(greenLedClear){
-      greenLedClear = false;
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET); // Green LED
-    }
-    
-    if(blueLedFlash){
-      blueLedFlash = false;
-      blueLedClear = true;
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET); // Blue LED
-    }
-    else if(blueLedClear){
-      blueLedClear = false;
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET); // Blue LED
-    }
-
-    // Wait for the next cycle, 100ms from the last wake time
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END StartLedTask */
@@ -646,10 +646,8 @@ void startUartTask(void *argument)
     {
       if((rxMsg.type == UART_MSG_TYPE__FRAME_RX) && (rxMsg.len > 1))
       {
-        // turn on green led for quick flash to indicate a message was received;
-        // timer3 will switch it back off after 200 ms
-        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-        timer3_startOneShot();
+        // quick single flash of the green led to indicate a message was received
+        ledGreen.flash(1, 1, 0, true);
 
         txFrame.setData(rxMsg.len - 1, rxMsg.data);
         writer0.sendFrame(&txFrame);
@@ -697,7 +695,7 @@ void startWriter0Task(void *argument)
 void startReader0Task(void *argument)
 {
   /* USER CODE BEGIN startReader0Task */
-  reader0.init(uart2Queue, &writer0, serlink0RxQueue);
+  reader0.init(uart2Queue, &writer0, serlink0Queue);
 
   for(;;)
   {
@@ -709,21 +707,59 @@ void startReader0Task(void *argument)
 void startSerLink0Task(void *argument)
 {
   /* USER CODE BEGIN startSerLink0Task */
-  serlink0RxQueue = xQueueCreateStatic(SERLINK0_RX_QUEUE_LENGTH, sizeof(SerLink::FrameMsg), (uint8_t*)serlink0RxQueueStorageArea, &serlink0RxStaticQueue);
   for(;;)
   {
-    SerLink::FrameMsg rxFrameMsg;
-    if (xQueueReceive(serlink0RxQueue, &rxFrameMsg, portMAX_DELAY) == pdTRUE)
+    SerLink::FrameMsg frameMsg;
+    if (xQueueReceive(serlink0Queue, &frameMsg, portMAX_DELAY) == pdTRUE)
     {
-      if(rxFrameMsg.type == SerLink::FrameMsg::TYPE_RX)
+      if(frameMsg.type == SerLink::FrameMsg::TYPE_RX)
       {
         // process the received frame
 
-        blueLedFlash = true; // flash blue led to indicate a message was received
+        ledBlue.flash(1, 1, 0, true); // flash blue led to indicate a message was received
+      }
+      else if(frameMsg.type == SerLink::FrameMsg::TYPE_TX)
+      {
+        // send the frame via the writer
+        writer0.sendFrame(&frameMsg.frame);
+      }
+      else if(frameMsg.type == SerLink::FrameMsg::TYPE_ACK)
+      {
+        // process the ack frame
+        ledGreen.flash(1, 1, 0, true); // flash orange led to indicate an ack was received
       }
     }
   }
   /* USER CODE END startSerLink0Task */
+}
+
+void startButtonTask(void *argument)
+{
+  /* USER CODE BEGIN startButtonTask */
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xFrequency = pdMS_TO_TICKS(Button::POLL_PERIOD_MS);
+
+  SerLink::FrameMsg frameMsg;
+  frameMsg.type = SerLink::FrameMsg::TYPE_TX;
+  frameMsg.frame.setProtocol("TST01");
+  frameMsg.frame.type = SerLink::Frame::TYPE_UNIDIRECTION;
+  frameMsg.frame.rollCode = 123;
+  frameMsg.frame.setData(4, "abcd");
+
+  for(;;)
+  {
+    button0.run();
+
+    if(button0.getEvent() == Button::Pressed)
+    {
+      ledRed.flash(1, 1, 0, true);
+
+      xQueueSend(serlink0Queue, &frameMsg, 0);
+    }
+
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+  /* USER CODE END startButtonTask */
 }
 
 /**

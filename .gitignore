@@ -72,3 +72,5 @@ Testing/
 *.elf
 *.list
 *.map
+stm32_freertos_A/Debug/
+stm32_freertos_A/Release/
