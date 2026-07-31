@@ -88,6 +88,14 @@ uint8_t Reader::idle()
       {
         this->writer->setAckFrame(&this->rxFrame);
       }
+
+      // also send the ack frame to the consumer queue if it exists - it can contain data (piggy-backing)
+      if(this->consumerQueue != nullptr)
+      {
+        this->rxFrameMsg.frame.copy(&this->rxFrame);
+        this->rxFrameMsg.type = FrameMsg::TYPE_ACK; 
+        xQueueSend(this->consumerQueue, &this->rxFrameMsg, 0);
+      }
       return IDLE;
     }
   }

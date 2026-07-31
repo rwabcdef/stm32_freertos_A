@@ -11,7 +11,7 @@
 #include "main.h"
 #include "Reader_config.hpp"
 #include "StateMachine.hpp"
-#include "SerLink.hpp"
+#include "SerLink_Msgs.hpp"
 #include "Writer.hpp"
 #include "Frame.hpp"
 #include "FreeRTOS.h"

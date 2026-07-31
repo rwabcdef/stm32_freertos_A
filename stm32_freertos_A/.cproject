@@ -78,9 +78,10 @@
 									<listOptionValue builtIn="false" value="../Core/Inc/hal"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/StateMachine"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Frame"/>
-									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Writer"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Reader"/>
+									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Writer"/>
 									<listOptionValue builtIn="false" value="../Middlewares/SerLink/"/>
+									<listOptionValue builtIn="false" value="../Middlewares/SerLink/Socket"/>
 									<listOptionValue builtIn="false" value="../Components/Button"/>
 									<listOptionValue builtIn="false" value="../Components/Led"/>
 									<listOptionValue builtIn="false" value="../USB_HOST/App"/>

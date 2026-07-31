@@ -38,6 +38,20 @@
   *
   * DBG01T347005hello       (Ctrl+C, then right click in the picocom window to paste the text)
   * 
+  * -------------------------------------------
+  * // node js SerLink interafce
+  * 
+  * rob@debian:~/Software/Projects/Arduino/ArdMod/Arduino1/PC/Transport/node_js$ 
+  * npm run quick-start
+  * 
+  * // code
+  * const portName = "/dev/ttyUSB0"; // linux usb-serial adapter (STM32 uart etc.)
+    const baudRate = 115200; // STM32 uart 
+
+    stm32SerLink(portName, baudRate).catch(err => {
+      console.error("Error in stm32SerLink:", err);
+    });
+  * 
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -50,7 +64,7 @@
 #include "uart2.h"
 #include "queue.h"
 #include "Reader.hpp"
-#include "SerLink.hpp"
+#include "Transport.hpp"
 #include "Button.hpp"
 #include "Led.hpp"
 #include <cstdio>
@@ -92,13 +106,14 @@ QueueHandle_t uart2Queue;
 SerLink::Writer writer0;
 SerLink::Reader reader0(READER_CONFIG__READER0_ID);
 
-// SerLink0 Rx and Tx queue - populated by reader0 (received frames)
-// and application code (frames to be sent), respectively.
-// - created in startSerLink0Task()
-#define SERLINK0_QUEUE_LENGTH 5
-StaticQueue_t serlink0StaticQueue;
-char serlink0QueueStorageArea[SERLINK0_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
-QueueHandle_t serlink0Queue;
+// SerLink0 transport dispatch queue - created here (rather than owned
+// internally by Transport) and handed in via transport0.init()
+#define TRANSPORT0_QUEUE_LENGTH 5
+StaticQueue_t transport0StaticQueue;
+uint8_t transport0QueueStorageArea[TRANSPORT0_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
+QueueHandle_t transport0Queue;
+
+SerLink::Transport transport0(&writer0);
 
 // User button (PA0), active high
 Button button0(B1_GPIO_Port, B1_Pin, true);
@@ -249,8 +264,12 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-  serlink0Queue = xQueueCreateStatic(SERLINK0_QUEUE_LENGTH, sizeof(SerLink::FrameMsg), (uint8_t*)serlink0QueueStorageArea, &serlink0StaticQueue);
-  
+  // Created synchronously here (rather than inside startSerLink0Task) so
+  // transport0.queue is guaranteed valid before any task - including
+  // startReader0Task, which passes it to reader0.init() - can run.
+  transport0Queue = xQueueCreateStatic(TRANSPORT0_QUEUE_LENGTH, sizeof(SerLink::FrameMsg),
+    transport0QueueStorageArea, &transport0StaticQueue);
+  transport0.init(transport0Queue);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -607,7 +626,8 @@ void StartLedTask(void *argument)
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(Led::PERIOD_MS);
 
-  ledOrange.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
+  //ledOrange.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
+  ledGreen.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
 
   /* Infinite loop */
   for(;;)
@@ -695,7 +715,7 @@ void startWriter0Task(void *argument)
 void startReader0Task(void *argument)
 {
   /* USER CODE BEGIN startReader0Task */
-  reader0.init(uart2Queue, &writer0, serlink0Queue);
+  reader0.init(uart2Queue, &writer0, transport0.queue);
 
   for(;;)
   {
@@ -709,26 +729,7 @@ void startSerLink0Task(void *argument)
   /* USER CODE BEGIN startSerLink0Task */
   for(;;)
   {
-    SerLink::FrameMsg frameMsg;
-    if (xQueueReceive(serlink0Queue, &frameMsg, portMAX_DELAY) == pdTRUE)
-    {
-      if(frameMsg.type == SerLink::FrameMsg::TYPE_RX)
-      {
-        // process the received frame
-
-        ledBlue.flash(1, 1, 0, true); // flash blue led to indicate a message was received
-      }
-      else if(frameMsg.type == SerLink::FrameMsg::TYPE_TX)
-      {
-        // send the frame via the writer
-        writer0.sendFrame(&frameMsg.frame);
-      }
-      else if(frameMsg.type == SerLink::FrameMsg::TYPE_ACK)
-      {
-        // process the ack frame
-        ledGreen.flash(1, 1, 0, true); // flash orange led to indicate an ack was received
-      }
-    }
+    transport0.run();
   }
   /* USER CODE END startSerLink0Task */
 }
@@ -741,8 +742,8 @@ void startButtonTask(void *argument)
 
   SerLink::FrameMsg frameMsg;
   frameMsg.type = SerLink::FrameMsg::TYPE_TX;
-  frameMsg.frame.setProtocol("TST01");
-  frameMsg.frame.type = SerLink::Frame::TYPE_UNIDIRECTION;
+  frameMsg.frame.setProtocol("BUT00");
+  frameMsg.frame.type = SerLink::Frame::TYPE_TRANSMISSION;
   frameMsg.frame.rollCode = 123;
   frameMsg.frame.setData(4, "abcd");
 
@@ -754,7 +755,7 @@ void startButtonTask(void *argument)
     {
       ledRed.flash(1, 1, 0, true);
 
-      xQueueSend(serlink0Queue, &frameMsg, 0);
+      xQueueSend(transport0.queue, &frameMsg, 0);
     }
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
