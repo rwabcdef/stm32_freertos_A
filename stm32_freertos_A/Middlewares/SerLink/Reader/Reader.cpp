@@ -24,6 +24,7 @@ void Reader::init(QueueHandle_t uartRxQueue, Writer* writer, QueueHandle_t consu
   this->uartRxQueue = uartRxQueue;
   this->writer = writer;
   this->consumerQueue = consumerQueue;
+  this->numInstantHandlers = 0;
 }
 
 void Reader::run()
@@ -53,6 +54,30 @@ uint8_t Reader::idle()
 			this->ackFrame.type = Frame::TYPE_ACK;
 			this->ackFrame.dataLen = Frame::ACK_OK;
 			memset(this->ackFrame.data, 0, Frame::MAX_DATALEN);
+
+      readHandler instantHandler = this->getInstantHandler(this->rxFrame.protocol);
+			if(instantHandler == nullptr)
+			{
+			  // No instant (i.e. piggyback) handler has been found - so do nothing.
+			}
+      else
+			{
+			  // An instant (i.e. piggyback) handler has been found for this protocol,
+			  // so call it now.
+			  // The instant handler callback sets the ackFrame's data & dataLen.
+			  bool useReturn = instantHandler(this->rxFrame, &this->ackFrame.dataLen, this->ackFrame.data);
+
+        if(!useReturn)
+			  {
+			    // do not use data length and data in ack frame that was set by the instantHandler
+			    this->ackFrame.type = Frame::TYPE_ACK;
+				  this->ackFrame.dataLen = Frame::ACK_OK;
+			  }
+			  else
+			  {
+			    // do nothing - use data length and data in ack frame that was set by the instantHandler
+			  }
+      }
 
       // pass the received frame to the consumer queue if it exists
       if(this->consumerQueue != nullptr)
@@ -148,6 +173,22 @@ bool Reader::checkUartFrameRx()
   }
 
   return false;
+}
+
+bool Reader::registerInstantCallback(char* protocol, readHandler handler)
+{
+  if(this->numInstantHandlers < (READER_CONFIG__MAX_NUM_INSTANT_HANDLERS - 1))
+  {
+    strncpy(this->handlerRegistrations[this->numInstantHandlers].protocol, protocol, Frame::LEN_PROTOCOL);
+    this->handlerRegistrations[this->numInstantHandlers].handler = handler;
+    this->numInstantHandlers++;
+    return true;
+  }
+  else
+  {
+    // No more registrations are available
+    return false;
+  }
 }
 
 readHandler Reader::getInstantHandler(char* protocol)

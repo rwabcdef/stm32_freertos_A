@@ -68,6 +68,7 @@
 #include "Button.hpp"
 #include "Led.hpp"
 #include <cstdio>
+#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -103,7 +104,7 @@ char uart2QueueStorageArea[UART2_QUEUE_LENGTH * sizeof(UartMessage_t)];
 QueueHandle_t uart2Queue;
 
 // Uart2 SerLink writer and reader
-SerLink::Writer writer0;
+SerLink::Writer writer0(WRITER_CONFIG__WRITER0_ID);
 SerLink::Reader reader0(READER_CONFIG__READER0_ID);
 
 // SerLink0 transport dispatch queue - created here (rather than owned
@@ -113,7 +114,7 @@ StaticQueue_t transport0StaticQueue;
 uint8_t transport0QueueStorageArea[TRANSPORT0_QUEUE_LENGTH * sizeof(SerLink::FrameMsg)];
 QueueHandle_t transport0Queue;
 
-SerLink::Transport transport0(&writer0);
+SerLink::Transport transport0(&writer0, &reader0);
 
 // User button (PA0), active high
 Button button0(B1_GPIO_Port, B1_Pin, true);
@@ -196,6 +197,9 @@ void startWriter0Task(void *argument);
 void startReader0Task(void *argument);
 void startSerLink0Task(void *argument);
 void startButtonTask(void *argument);
+void transport0ReceiveCallback(const char* data, uint16_t dataLen){ ledOrange.flash(1, 1, 0, true);}
+void transport0AckCallback(const char* data, uint16_t dataLen){ ledBlue.flash(1, 1, 0, true);}
+bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* data);
 
 /* USER CODE BEGIN PFP */
 
@@ -269,7 +273,11 @@ int main(void)
   // startReader0Task, which passes it to reader0.init() - can run.
   transport0Queue = xQueueCreateStatic(TRANSPORT0_QUEUE_LENGTH, sizeof(SerLink::FrameMsg),
     transport0QueueStorageArea, &transport0StaticQueue);
-  transport0.init(transport0Queue);
+  transport0.init(transport0Queue, transport0ReceiveCallback, transport0AckCallback);
+
+  writer0.init();
+  reader0.init(uart2Queue, &writer0, transport0.queue);
+
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -604,6 +612,8 @@ void StartDefaultTask(void *argument)
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // orange
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET); // red
 
+  SerLink::Socket* debugSocket = transport0.acquireSocket("DBG00", nullptr, debugSockInstantHandler);
+
   /* Infinite loop */
   for(;;)
   {
@@ -703,7 +713,7 @@ void startUartTask(void *argument)
 void startWriter0Task(void *argument)
 {
   /* USER CODE BEGIN startWriter0Task */
-  writer0.init(WRITER_CONFIG__WRITER0_ID);
+  //writer0.init();
 
   for(;;)
   {
@@ -715,7 +725,7 @@ void startWriter0Task(void *argument)
 void startReader0Task(void *argument)
 {
   /* USER CODE BEGIN startReader0Task */
-  reader0.init(uart2Queue, &writer0, transport0.queue);
+  //reader0.init(uart2Queue, &writer0, transport0.queue);
 
   for(;;)
   {
@@ -740,12 +750,14 @@ void startButtonTask(void *argument)
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(Button::POLL_PERIOD_MS);
 
-  SerLink::FrameMsg frameMsg;
-  frameMsg.type = SerLink::FrameMsg::TYPE_TX;
-  frameMsg.frame.setProtocol("BUT00");
-  frameMsg.frame.type = SerLink::Frame::TYPE_TRANSMISSION;
-  frameMsg.frame.rollCode = 123;
-  frameMsg.frame.setData(4, "abcd");
+  // SerLink::FrameMsg frameMsg;
+  // frameMsg.type = SerLink::FrameMsg::TYPE_TX;
+  // frameMsg.frame.setProtocol("BUT00");
+  // frameMsg.frame.type = SerLink::Frame::TYPE_TRANSMISSION;
+  // frameMsg.frame.rollCode = 123;
+  // frameMsg.frame.setData(4, "abcd");
+
+  SerLink::Socket* button0Socket = transport0.acquireSocket("BUT00");
 
   for(;;)
   {
@@ -755,12 +767,26 @@ void startButtonTask(void *argument)
     {
       ledRed.flash(1, 1, 0, true);
 
-      xQueueSend(transport0.queue, &frameMsg, 0);
+      //xQueueSend(transport0.queue, &frameMsg, 0);
+      button0Socket->sendData("abcde", 5);
     }
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
   /* USER CODE END startButtonTask */
+}
+
+bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* data)
+{
+  uint8_t index = 0;
+  if(rxFrame.data[index++] == 'R')
+  {
+    memset(data, 0, 10); // clear outgoing buffer
+    strncpy(data, "OK", 2);
+    *dataLen = 2;
+    return true;
+  }
+  return false; // not handled
 }
 
 /**

@@ -44,7 +44,7 @@ bool Socket::sendData(char* data, uint16_t dataLen)
   Frame frame(this->protocol, Frame::TYPE_TRANSMISSION, this->txRollCode, dataLen, data);
   Frame::incRollCode(&this->txRollCode);
 
-  return this->transport->sendData(&frame);
+  return this->transport->sendFrame(&frame);
 }
 
 bool Socket::receiveData(uint16_t* dataLen, char* data, uint16_t timeoutMs)

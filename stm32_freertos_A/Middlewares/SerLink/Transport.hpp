@@ -9,7 +9,7 @@
 #define TRANSPORT_HPP_
 
 #include "SerLink_config.hpp"
-#include "Frame.hpp"
+#include "SerLink_Msgs.hpp"
 #include "Socket.hpp"
 #include "FreeRTOS.h"
 #include "queue.h"
@@ -19,11 +19,15 @@ namespace SerLink {
   // Only used as a pointer here - forward declared (rather than #included)
   // to avoid a Writer.hpp <-> Transport.hpp circular include.
   class Writer;
+  class Reader;
 
   class Transport {
     protected:
       Writer* writer;
+      Reader* reader;
       Socket sockets[SERLINK_CONFIG__MAX_SOCKETS];
+      onReceiveCallback receiveCallback;
+      onReceiveCallback ackCallback;
 
     public:
       // Fed by Reader's consumerQueue (received frames) and by application
@@ -33,11 +37,12 @@ namespace SerLink {
       // creates it.
       QueueHandle_t queue;
 
-      Transport(Writer* writer);
+      Transport(Writer* writer, Reader *reader);
 
       // Assigns the (already-created) dispatch queue. Must be called once,
       // before queue is used.
-      void init(QueueHandle_t queue);
+      void init(QueueHandle_t queue, onReceiveCallback receiveCallback = nullptr,
+        onReceiveCallback ackCallback = nullptr);
 
       // Services one message from queue: routes received (TYPE_RX) frames
       // to whichever acquired socket matches their protocol, and forwards
@@ -48,9 +53,10 @@ namespace SerLink {
 
       // Non-blocking: pushes frame onto queue (as a TYPE_TX FrameMsg) for
       // run() to forward to the writer. Returns whether it was accepted.
-      bool sendData(Frame* frame);
+      bool sendFrame(Frame* frame);
 
-      Socket* acquireSocket(char* protocol, onReceiveCallback callback = nullptr);
+      Socket* acquireSocket(char* protocol, onReceiveCallback callback = nullptr,
+        readHandler instantHandler = nullptr);
   };
 }
 

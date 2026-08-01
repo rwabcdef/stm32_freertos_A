@@ -6,6 +6,10 @@
 
 namespace SerLink {
 
+  // Instant read handler callback - populates the ack frame's dataLen and data,
+  // if it wants to piggyback data on the ack.
+  typedef bool (*readHandler)(Frame &rxFrame, uint16_t* dataLen, char* data);
+
   // Socket onReceive callback function type definition
   typedef void (*onReceiveCallback)(const char* data, uint16_t dataLen);
 

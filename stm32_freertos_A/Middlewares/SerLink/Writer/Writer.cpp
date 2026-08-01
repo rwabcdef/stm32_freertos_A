@@ -17,11 +17,11 @@
 
 using namespace SerLink;
 
-Writer::Writer()
+Writer::Writer(uint8_t id): id(id)
 {
 }
 
-void Writer::init(uint8_t id)
+void Writer::init()
 {
   this->id = id;
   this->currentState = IDLE;

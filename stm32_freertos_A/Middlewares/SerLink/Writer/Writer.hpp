@@ -55,8 +55,8 @@
    static const uint8_t STATUS_TIMEOUT = 51;
    static const uint8_t STATUS_PROTOCOL_ERROR = 52;
 
-   Writer();
-   void init(uint8_t id);
+   Writer(uint8_t id);
+   void init();
    void run();
 
    // Used to send frame. Non-blocking: returns 1 (rather than blocking the
