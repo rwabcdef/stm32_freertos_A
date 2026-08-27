@@ -39,9 +39,11 @@ bool Socket::matchesProtocol(char* protocol)
 // Non-blocking: hands the frame to transport->sendData() (see
 // Transport::run()'s TYPE_TX handling) and returns whether it was
 // accepted, rather than waiting here for the ack.
-bool Socket::sendData(char* data, uint16_t dataLen)
+bool Socket::sendData(char* data, uint16_t dataLen, bool ack)
 {
-  Frame frame(this->protocol, Frame::TYPE_TRANSMISSION, this->txRollCode, dataLen, data);
+  char type = ack ? Frame::TYPE_TRANSMISSION : Frame::TYPE_UNIDIRECTION;
+  
+  Frame frame(this->protocol, type, this->txRollCode, dataLen, data);
   Frame::incRollCode(&this->txRollCode);
 
   return this->transport->sendFrame(&frame);

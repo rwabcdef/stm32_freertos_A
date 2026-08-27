@@ -67,6 +67,7 @@
 #include "Transport.hpp"
 #include "Button.hpp"
 #include "Led.hpp"
+#include "PWM.hpp"
 #include <cstdio>
 #include <string.h>
 
@@ -120,10 +121,13 @@ SerLink::Transport transport0(&writer0, &reader0);
 Button button0(B1_GPIO_Port, B1_Pin, true);
 
 // Board LEDs (GPIOD)
-Led ledGreen(GPIOD, GPIO_PIN_12);
 Led ledOrange(GPIOD, GPIO_PIN_13);
 Led ledRed(GPIOD, GPIO_PIN_14);
 Led ledBlue(GPIOD, GPIO_PIN_15);
+
+// PWM module
+// PWM pwm0(GPIOC, GPIO_PIN_6, PWM_FREQ_1KHZ);
+PWM pwm0(GPIOD, GPIO_PIN_12, PWM_FREQ_1KHZ);
 //--------------------------------------------------------------
 
 /* Definitions for defaultTask */
@@ -197,8 +201,14 @@ void startWriter0Task(void *argument);
 void startReader0Task(void *argument);
 void startSerLink0Task(void *argument);
 void startButtonTask(void *argument);
+
+// This is called by transport0 when a frame is received.
 void transport0ReceiveCallback(const char* data, uint16_t dataLen){ ledOrange.flash(1, 1, 0, true);}
+
+// This is called by transport0 when an ack frame is received for a frame that was sent with ack=true.
 void transport0AckCallback(const char* data, uint16_t dataLen){ ledBlue.flash(1, 1, 0, true);}
+
+// Populates the ack packet payload, for the debug socket, if the received frame has a certain payload.
 bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* data);
 
 /* USER CODE BEGIN PFP */
@@ -306,8 +316,6 @@ int main(void)
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
-  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); // green led on
 
   /* Start scheduler */
   osKernelStart();
@@ -607,12 +615,13 @@ void vApplicationMallocFailedHook(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  // set green led on
-  //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // orange
   //HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET); // red
 
   SerLink::Socket* debugSocket = transport0.acquireSocket("DBG00", nullptr, debugSockInstantHandler);
+
+  pwm0.init();
+  pwm0.setPercent(30); // 30% duty cycle
 
   /* Infinite loop */
   for(;;)
@@ -637,12 +646,10 @@ void StartLedTask(void *argument)
   const TickType_t xFrequency = pdMS_TO_TICKS(Led::PERIOD_MS);
 
   //ledOrange.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
-  ledGreen.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
 
   /* Infinite loop */
   for(;;)
   {
-    ledGreen.run();
     ledOrange.run();
     ledRed.run();
     ledBlue.run();
@@ -676,9 +683,6 @@ void startUartTask(void *argument)
     {
       if((rxMsg.type == UART_MSG_TYPE__FRAME_RX) && (rxMsg.len > 1))
       {
-        // quick single flash of the green led to indicate a message was received
-        ledGreen.flash(1, 1, 0, true);
-
         txFrame.setData(rxMsg.len - 1, rxMsg.data);
         writer0.sendFrame(&txFrame);
 
@@ -768,7 +772,7 @@ void startButtonTask(void *argument)
       ledRed.flash(1, 1, 0, true);
 
       //xQueueSend(transport0.queue, &frameMsg, 0);
-      button0Socket->sendData("abcde", 5);
+      button0Socket->sendData("0P", 2, true);
     }
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);

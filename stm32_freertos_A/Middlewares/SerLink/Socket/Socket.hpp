@@ -38,7 +38,7 @@ namespace SerLink {
     public:
       Socket();
       void init(char* protocol, Transport* transport, onReceiveCallback = nullptr);
-      bool sendData(char* data, uint16_t dataLen);
+      bool sendData(char* data, uint16_t dataLen, bool ack);
       bool receiveData(uint16_t* dataLen, char* data, uint16_t timeoutMs);
 
       // Called (by Transport, once it identifies this socket's protocol as

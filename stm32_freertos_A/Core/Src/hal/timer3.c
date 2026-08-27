@@ -52,5 +52,4 @@ void TIM3_IRQHandler(void)
 void timer3_handlePeriodElapsed(void)
 {
   HAL_TIM_Base_Stop_IT(&htim3); // one-shot: stop until re-triggered
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET); // green LED off
 }

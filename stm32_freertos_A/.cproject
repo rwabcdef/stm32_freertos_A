@@ -95,6 +95,7 @@
 									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/include"/>
 									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2"/>
 									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F"/>
+									<listOptionValue builtIn="false" value="../Components/PWM"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp.1808744961" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp"/>
 							</tool>
@@ -235,6 +236,8 @@
 		<project id="stm32_freertos_A.null.691078275" name="stm32_freertos_A"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="refreshScope"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.release.1321276085;com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.release.1321276085.;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.1017286715;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1137065636">
@@ -243,7 +246,8 @@
 		<scannerConfigBuildInfo instanceId="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1494295856;com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1494295856.;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.1754225677;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.926447242">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1494295856;com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1494295856.;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.629521503;com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp.1808744961">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
-	<storageModule moduleId="refreshScope"/>
 </cproject>
