@@ -121,13 +121,14 @@ SerLink::Transport transport0(&writer0, &reader0);
 Button button0(B1_GPIO_Port, B1_Pin, true);
 
 // Board LEDs (GPIOD)
+Led ledGreen(GPIOD, GPIO_PIN_12);
 Led ledOrange(GPIOD, GPIO_PIN_13);
 Led ledRed(GPIOD, GPIO_PIN_14);
 Led ledBlue(GPIOD, GPIO_PIN_15);
 
 // PWM module
-// PWM pwm0(GPIOC, GPIO_PIN_6, PWM_FREQ_1KHZ);
-PWM pwm0(GPIOD, GPIO_PIN_12, PWM_FREQ_1KHZ);
+ PWM pwm0(GPIOC, GPIO_PIN_6, PWM_FREQ_1KHZ);
+//PWM pwm0(GPIOD, GPIO_PIN_12, PWM_FREQ_1KHZ);
 //--------------------------------------------------------------
 
 /* Definitions for defaultTask */
@@ -645,11 +646,12 @@ void StartLedTask(void *argument)
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(Led::PERIOD_MS);
 
-  //ledOrange.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
+  ledGreen.flash(0, 2, 2, false); // continuous blink: 500 ms on / 500 ms off
 
   /* Infinite loop */
   for(;;)
   {
+    ledGreen.run();
     ledOrange.run();
     ledRed.run();
     ledBlue.run();

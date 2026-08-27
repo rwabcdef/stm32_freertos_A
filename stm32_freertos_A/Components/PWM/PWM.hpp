@@ -12,9 +12,16 @@ enum pwmFreqValues : uint32_t
   PWM_FREQ_2KHZ = 2000U
 };
 
-// Sentinel for "no valid timer channel" - must not collide with a real
-// TIM_CHANNEL_x value (TIM_CHANNEL_1 is 0, so 0 cannot be used for this).
-static constexpr uint32_t PWM_CHANNEL_INVALID = 0xFFFFFFFFU;
+// One entry per pin PWM knows how to drive - the timer, channel and GPIO
+// alternate function that pin needs to be configured for.
+struct PwmPinMapping
+{
+  GPIO_TypeDef* port;
+  uint16_t pin;
+  TIM_TypeDef* timerInstance;
+  uint32_t channel;
+  uint8_t alternateFunction;
+};
 
 class PWM
 {
@@ -26,19 +33,34 @@ class PWM
     uint8_t getPercent() const;
 
   private:
+    // Per-timer state, shared by every PWM instance/channel that lives on
+    // that timer. All channels of one timer share its prescaler/period,
+    // so the base timer only ever gets initialized once - by whichever
+    // PWM instance calls init() first for that timer.
+    struct TimerState
+    {
+      TIM_TypeDef* instance;
+      TIM_HandleTypeDef handle;
+      bool baseInitialized;
+    };
+
+    // Number of distinct timers PWM can drive at once. Bump this if more
+    // than this many different timers are used for PWM simultaneously.
+    static constexpr uint8_t MAX_TIMERS = 4U;
+    static TimerState timerStates[MAX_TIMERS];
+
     GPIO_TypeDef* port;
     uint16_t pin;
-    uint32_t channel;
+    const PwmPinMapping* mapping; // nullptr if this pin isn't supported
+    pwmFreqValues frequency;
     uint8_t percent;
+    bool channelStarted;
 
-    static TIM_HandleTypeDef timer;
-    static uint32_t configuredFrequency;
-    static bool initialized;
-
-    static uint32_t timerClockHz();
-    static void initialize(GPIO_TypeDef* port, uint16_t pin,
-                 uint32_t channel, pwmFreqValues frequency);
-    static uint32_t channelForPin(GPIO_TypeDef* port, uint16_t pin);
+    static uint32_t timerClockHz(TIM_TypeDef* instance);
+    static void enableGpioClock(GPIO_TypeDef* port);
+    static void enableTimerClock(TIM_TypeDef* instance);
+    static const PwmPinMapping* findMapping(GPIO_TypeDef* port, uint16_t pin);
+    static TimerState* timerStateFor(TIM_TypeDef* instance);
 };
 
 #endif

@@ -1,14 +1,63 @@
 #include "PWM.hpp"
 
-TIM_HandleTypeDef PWM::timer = {};
-uint32_t PWM::configuredFrequency = 0U;
-bool PWM::initialized = false;
+PWM::TimerState PWM::timerStates[PWM::MAX_TIMERS] = {};
 
-uint32_t PWM::timerClockHz()
+// Pins PWM currently knows how to drive. Add an entry here (and extend
+// enableGpioClock()/enableTimerClock() if it needs a new port/timer) to
+// support another pin.
+static const PwmPinMapping pwmPinMappings[] =
+{
+  { GPIOD, GPIO_PIN_12, TIM4, TIM_CHANNEL_1, GPIO_AF2_TIM4 },
+  { GPIOD, GPIO_PIN_13, TIM4, TIM_CHANNEL_2, GPIO_AF2_TIM4 },
+  { GPIOD, GPIO_PIN_14, TIM4, TIM_CHANNEL_3, GPIO_AF2_TIM4 },
+  { GPIOD, GPIO_PIN_15, TIM4, TIM_CHANNEL_4, GPIO_AF2_TIM4 },
+  { GPIOC, GPIO_PIN_6,  TIM8, TIM_CHANNEL_1, GPIO_AF3_TIM8 },
+};
+
+const PwmPinMapping* PWM::findMapping(GPIO_TypeDef* port, uint16_t pin)
+{
+  for(const PwmPinMapping& candidate : pwmPinMappings)
+  {
+    if(candidate.port == port && candidate.pin == pin)
+    {
+      return &candidate;
+    }
+  }
+  return nullptr;
+}
+
+void PWM::enableGpioClock(GPIO_TypeDef* port)
+{
+  if(port == GPIOA)      { __HAL_RCC_GPIOA_CLK_ENABLE(); }
+  else if(port == GPIOB) { __HAL_RCC_GPIOB_CLK_ENABLE(); }
+  else if(port == GPIOC) { __HAL_RCC_GPIOC_CLK_ENABLE(); }
+  else if(port == GPIOD) { __HAL_RCC_GPIOD_CLK_ENABLE(); }
+  else if(port == GPIOE) { __HAL_RCC_GPIOE_CLK_ENABLE(); }
+}
+
+void PWM::enableTimerClock(TIM_TypeDef* instance)
+{
+  if(instance == TIM4)      { __HAL_RCC_TIM4_CLK_ENABLE(); }
+  else if(instance == TIM8) { __HAL_RCC_TIM8_CLK_ENABLE(); }
+}
+
+uint32_t PWM::timerClockHz(TIM_TypeDef* instance)
 {
   RCC_ClkInitTypeDef clockConfig = {};
   uint32_t flashLatency = 0U;
   HAL_RCC_GetClockConfig(&clockConfig, &flashLatency);
+
+  // TIM8 (like TIM1 and TIM9-11) is clocked from APB2; the other general
+  // purpose timers used here are clocked from APB1.
+  if(instance == TIM8)
+  {
+    uint32_t pclk = HAL_RCC_GetPCLK2Freq();
+    if(clockConfig.APB2CLKDivider != RCC_HCLK_DIV1)
+    {
+      pclk *= 2U;
+    }
+    return pclk;
+  }
 
   uint32_t pclk = HAL_RCC_GetPCLK1Freq();
   if(clockConfig.APB1CLKDivider != RCC_HCLK_DIV1)
@@ -18,88 +67,106 @@ uint32_t PWM::timerClockHz()
   return pclk;
 }
 
-void PWM::initialize(GPIO_TypeDef* port, uint16_t pin, uint32_t channel,
-                     pwmFreqValues frequency)
+PWM::TimerState* PWM::timerStateFor(TIM_TypeDef* instance)
 {
-  if(initialized)
+  // Reuse the slot already tracking this timer, if there is one.
+  for(TimerState& state : timerStates)
+  {
+    if(state.instance == instance)
+    {
+      return &state;
+    }
+  }
+
+  // Otherwise claim a fresh slot for it.
+  for(TimerState& state : timerStates)
+  {
+    if(state.instance == nullptr)
+    {
+      state.instance = instance;
+      return &state;
+    }
+  }
+
+  // Out of timer slots - increase MAX_TIMERS in PWM.hpp if this happens.
+  return nullptr;
+}
+
+PWM::PWM(GPIO_TypeDef* port, uint16_t pin, pwmFreqValues frequency)
+: port(port), pin(pin), mapping(findMapping(port, pin)), frequency(frequency)
+, percent(0U), channelStarted(false)
+{
+}
+
+void PWM::init()
+{
+  if(mapping == nullptr || channelStarted)
   {
     return;
   }
 
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_TIM4_CLK_ENABLE();
+  TimerState* state = timerStateFor(mapping->timerInstance);
+  if(state == nullptr)
+  {
+    return;
+  }
 
-  timer.Instance = TIM4;
-  timer.Init.Prescaler = (timerClockHz() / 1000000U) - 1U;
-  timer.Init.CounterMode = TIM_COUNTERMODE_UP;
-  timer.Init.Period = (1000000U / static_cast<uint32_t>(frequency)) - 1U;
-  timer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  timer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  HAL_TIM_PWM_Init(&timer);
+  enableGpioClock(mapping->port);
+
+  if(!state->baseInitialized)
+  {
+    enableTimerClock(mapping->timerInstance);
+
+    state->handle.Instance = mapping->timerInstance;
+    state->handle.Init.Prescaler = (timerClockHz(mapping->timerInstance) / 1000000U) - 1U;
+    state->handle.Init.CounterMode = TIM_COUNTERMODE_UP;
+    state->handle.Init.Period = (1000000U / static_cast<uint32_t>(frequency)) - 1U;
+    state->handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    state->handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    HAL_TIM_PWM_Init(&state->handle);
+
+    state->baseInitialized = true;
+  }
+  // Note: every channel on a given timer shares that timer's single
+  // prescaler/period, so only the first PWM instance to reach a timer
+  // controls its frequency - later instances on the same timer run at
+  // that frequency too, regardless of what they were constructed with.
 
   GPIO_InitTypeDef gpioConfig = {};
-  gpioConfig.Pin = pin;
+  gpioConfig.Pin = mapping->pin;
   gpioConfig.Mode = GPIO_MODE_AF_PP;
   gpioConfig.Pull = GPIO_NOPULL;
   gpioConfig.Speed = GPIO_SPEED_FREQ_LOW;
-  gpioConfig.Alternate = GPIO_AF2_TIM4;
-  HAL_GPIO_Init(port, &gpioConfig);
+  gpioConfig.Alternate = mapping->alternateFunction;
+  HAL_GPIO_Init(mapping->port, &gpioConfig);
 
   TIM_OC_InitTypeDef outputConfig = {};
   outputConfig.OCMode = TIM_OCMODE_PWM1;
   outputConfig.Pulse = 0U;
   outputConfig.OCPolarity = TIM_OCPOLARITY_HIGH;
   outputConfig.OCFastMode = TIM_OCFAST_DISABLE;
-  HAL_TIM_PWM_ConfigChannel(&timer, &outputConfig, channel);
-  HAL_TIM_PWM_Start(&timer, channel);
+  HAL_TIM_PWM_ConfigChannel(&state->handle, &outputConfig, mapping->channel);
+  HAL_TIM_PWM_Start(&state->handle, mapping->channel);
 
-  initialized = true;
-  configuredFrequency = static_cast<uint32_t>(frequency);
-}
-
-uint32_t PWM::channelForPin(GPIO_TypeDef* port, uint16_t pin)
-{
-  // Note: TIM_CHANNEL_1 == 0, so 0 cannot be used as the "no channel" sentinel.
-  if(port != GPIOD)
-  {
-    return PWM_CHANNEL_INVALID;
-  }
-
-  switch(pin)
-  {
-    case GPIO_PIN_12: return TIM_CHANNEL_1;
-    case GPIO_PIN_13: return TIM_CHANNEL_2;
-    case GPIO_PIN_14: return TIM_CHANNEL_3;
-    case GPIO_PIN_15: return TIM_CHANNEL_4;
-    default: return PWM_CHANNEL_INVALID;
-  }
-}
-
-PWM::PWM(GPIO_TypeDef* port, uint16_t pin, pwmFreqValues frequency)
-: port(port), pin(pin), channel(channelForPin(port, pin)), percent(0U)
-{
-  configuredFrequency = static_cast<uint32_t>(frequency);
-}
-
-void PWM::init()
-{
-  if(channel != PWM_CHANNEL_INVALID)
-  {
-    initialize(port, pin, channel,
-               static_cast<pwmFreqValues>(configuredFrequency));
-  }
+  channelStarted = true;
 }
 
 void PWM::setPercent(uint8_t value)
 {
-  if(channel == PWM_CHANNEL_INVALID)
+  if(mapping == nullptr)
   {
     return;
   }
 
-  if(!initialized)
+  if(!channelStarted)
   {
     init();
+  }
+
+  TimerState* state = timerStateFor(mapping->timerInstance);
+  if(state == nullptr)
+  {
+    return;
   }
 
   if(value > 100U)
@@ -108,12 +175,13 @@ void PWM::setPercent(uint8_t value)
   }
 
   percent = value;
-  uint32_t pulse = (static_cast<uint32_t>(timer.Init.Period) + 1U) * percent / 100U;
-  if(pulse > timer.Init.Period)
+  uint32_t period = state->handle.Init.Period;
+  uint32_t pulse = (period + 1U) * percent / 100U;
+  if(pulse > period)
   {
-    pulse = timer.Init.Period;
+    pulse = period;
   }
-  __HAL_TIM_SET_COMPARE(&timer, channel, pulse);
+  __HAL_TIM_SET_COMPARE(&state->handle, mapping->channel, pulse);
 }
 
 uint8_t PWM::getPercent() const
