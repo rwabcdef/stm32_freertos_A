@@ -12,6 +12,12 @@ static const PwmPinMapping pwmPinMappings[] =
   { GPIOD, GPIO_PIN_14, TIM4, TIM_CHANNEL_3, GPIO_AF2_TIM4 },
   { GPIOD, GPIO_PIN_15, TIM4, TIM_CHANNEL_4, GPIO_AF2_TIM4 },
   { GPIOC, GPIO_PIN_6,  TIM8, TIM_CHANNEL_1, GPIO_AF3_TIM8 },
+  { GPIOC, GPIO_PIN_8,  TIM8, TIM_CHANNEL_3, GPIO_AF3_TIM8 },
+  { GPIOC, GPIO_PIN_9,  TIM8, TIM_CHANNEL_4, GPIO_AF3_TIM8 },
+  // TIM8_CH2 would be PC7, but this board uses PC7 as I2S3_MCK for the
+  // CS43L22 audio codec (MX_I2S3_Init). Adding it here would let a PWM
+  // instance silently reconfigure that pin to AF3 and kill the codec
+  // clock, so CH2 is deliberately left unmapped.
 };
 
 const PwmPinMapping* PWM::findMapping(GPIO_TypeDef* port, uint16_t pin)
@@ -187,4 +193,43 @@ void PWM::setPercent(uint8_t value)
 uint8_t PWM::getPercent() const
 {
   return percent;
+}
+
+void PWM::setFrequency(pwmFreqValues value)
+{
+  frequency = value;
+
+  if(mapping == nullptr)
+  {
+    return;
+  }
+
+  TimerState* state = timerStateFor(mapping->timerInstance);
+  if(state == nullptr || !state->baseInitialized)
+  {
+    // Timer isn't running yet - init() will pick the new frequency up.
+    return;
+  }
+
+  // The period belongs to the timer, not the channel, so this retunes
+  // every channel on that timer. Other PWM instances sharing it keep
+  // their old compare value and so end up at a different duty cycle -
+  // call setPercent() on those instances afterwards to restore theirs.
+  uint32_t period = (1000000U / static_cast<uint32_t>(frequency)) - 1U;
+  __HAL_TIM_SET_AUTORELOAD(&state->handle, period);
+
+  // If the counter is already past the new (smaller) period it would
+  // otherwise run all the way to 0xFFFF before reloading. Restarting it
+  // bounds the disturbance to a single period.
+  if(__HAL_TIM_GET_COUNTER(&state->handle) > period)
+  {
+    __HAL_TIM_SET_COUNTER(&state->handle, 0U);
+  }
+
+  setPercent(percent);
+}
+
+pwmFreqValues PWM::getFrequency() const
+{
+  return frequency;
 }

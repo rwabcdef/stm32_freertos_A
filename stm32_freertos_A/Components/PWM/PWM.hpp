@@ -32,6 +32,12 @@ class PWM
     void setPercent(uint8_t percent);
     uint8_t getPercent() const;
 
+    // Retunes the timer this channel lives on. See the note in
+    // PWM.cpp - the period is shared, so this affects every channel on
+    // that timer, not just this one.
+    void setFrequency(pwmFreqValues frequency);
+    pwmFreqValues getFrequency() const;
+
   private:
     // Per-timer state, shared by every PWM instance/channel that lives on
     // that timer. All channels of one timer share its prescaler/period,

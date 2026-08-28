@@ -213,7 +213,7 @@ void transport0AckCallback(const char* data, uint16_t dataLen){ ledBlue.flash(1,
 // Populates the ack packet payload, for the debug socket, if the received frame has a certain payload.
 bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* data);
 
-void pwm0RxCallback(const char* data, uint16_t dataLen);
+void pwm00SockRxCallback(const char* data, uint16_t dataLen);
 
 /* USER CODE BEGIN PFP */
 
@@ -624,7 +624,7 @@ void StartDefaultTask(void *argument)
 
   SerLink::Socket* debugSocket = transport0.acquireSocket("DBG00", nullptr, debugSockInstantHandler);
 
-  SerLink::Socket* pwm0Socket = transport0.acquireSocket("PWM00", pwm0RxCallback, nullptr);
+  SerLink::Socket* pwm0Socket = transport0.acquireSocket("PWM00", pwm00SockRxCallback, nullptr);
 
   pwm0.init();
   pwm0.setPercent(30); // 30% duty cycle
@@ -800,9 +800,10 @@ bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* d
   return false; // not handled
 }
 
+// Example payload: 0P5 = set pwm0 to 5% duty cycle
 // Example payload: 0P45 = set pwm0 to 45% duty cycle
 // Example payload: 0P100 = set pwm0 to 100% duty cycle
-void pwm0RxCallback(const char* data, uint16_t dataLen)
+void pwm00SockRxCallback(const char* data, uint16_t dataLen)
 {
   if(data == nullptr)
   {
