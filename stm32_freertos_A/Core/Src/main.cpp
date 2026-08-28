@@ -68,6 +68,7 @@
 #include "Button.hpp"
 #include "Led.hpp"
 #include "PWM.hpp"
+#include "TC78H611FNG.hpp"
 #include <cstdio>
 #include <string.h>
 #include <stdlib.h>
@@ -130,6 +131,8 @@ Led ledBlue(GPIOD, GPIO_PIN_15);
 // PWM module
  PWM pwm0(GPIOC, GPIO_PIN_6, PWM_FREQ_1KHZ);
 //PWM pwm0(GPIOD, GPIO_PIN_12, PWM_FREQ_1KHZ);
+
+TC78H611FNG motor0(GPIOC, GPIO_PIN_8, GPIOC, GPIO_PIN_9, PWM_FREQ_1KHZ);
 //--------------------------------------------------------------
 
 /* Definitions for defaultTask */
@@ -214,6 +217,8 @@ void transport0AckCallback(const char* data, uint16_t dataLen){ ledBlue.flash(1,
 bool debugSockInstantHandler(SerLink::Frame &rxFrame, uint16_t* dataLen, char* data);
 
 void pwm00SockRxCallback(const char* data, uint16_t dataLen);
+
+void motor0SockRxCallback(const char* data, uint16_t dataLen);
 
 /* USER CODE BEGIN PFP */
 
@@ -626,8 +631,16 @@ void StartDefaultTask(void *argument)
 
   SerLink::Socket* pwm0Socket = transport0.acquireSocket("PWM00", pwm00SockRxCallback, nullptr);
 
+  SerLink::Socket* motor0Socket = transport0.acquireSocket("MOTR0", motor0SockRxCallback, nullptr);
+
   pwm0.init();
   pwm0.setPercent(30); // 30% duty cycle
+
+  // Direction defaults to idle, which holds BOTH IN pins low whatever the
+  // percent is - so a direction is needed before anything appears on the
+  // output pins.
+  motor0.setPercent(30); // 30% duty cycle
+  motor0.setDirection(TC78H611FNG::reverse); // sets IN1 low, IN2 PWM
 
   /* Infinite loop */
   for(;;)
@@ -822,6 +835,77 @@ void pwm00SockRxCallback(const char* data, uint16_t dataLen)
       strncpy(percentStr, &data[index], 3);
       uint16_t percent = atoi(percentStr);
       pwm0.setPercent(percent);
+    }
+  }
+}
+
+// Example payload: 0P5    = set motor0 to 5% duty cycle
+// Example payload: 0P23   = set motor0 to 23% duty cycle
+// Example payload: 0P100  = set motor0 to 100% duty cycle
+// Example payload: 0DF    = set motor0 direction forward
+// Example payload: 0DR    = set motor0 direction reverse
+// Example payload: 0DD    = set motor0 direction disable (idle)
+// Example payload: 0F0    = set motor0 frequency to the 0th pwmFreqValues
+//                           entry (100 Hz), 0F1 = 500 Hz, and so on
+void motor0SockRxCallback(const char* data, uint16_t dataLen)
+{
+  if(data == nullptr)
+  {
+    return;
+  }
+  if(dataLen < 3)
+  {
+    return;
+  }
+  uint8_t index = 0;
+  if(data[index++] == '0')
+  {
+    const char action = data[index++];
+
+    if(action == 'P')
+    {
+      // Whatever follows is the percent - 1 to 3 digits. Bounded by
+      // dataLen so a short payload can't be read past its end.
+      uint16_t digits = dataLen - index;
+      if(digits > 3)
+      {
+        digits = 3;
+      }
+      char percentStr[4] = {0};
+      strncpy(percentStr, &data[index], digits);
+
+      // Clamped here as well as in setPercent(), because the narrowing to
+      // uint8_t would otherwise wrap a value like 300 down to a valid 44.
+      int percent = atoi(percentStr);
+      if(percent < 0)
+      {
+        percent = 0;
+      }
+      if(percent > 100)
+      {
+        percent = 100;
+      }
+      motor0.setPercent((uint8_t)percent);
+    }
+    else if(action == 'D')
+    {
+      switch(data[index])
+      {
+        case 'F': { motor0.setDirection(TC78H611FNG::forward); break; }
+        case 'R': { motor0.setDirection(TC78H611FNG::reverse); break; }
+        case 'D': { motor0.setDirection(TC78H611FNG::idle); break; }
+        default: { break; } // unrecognised direction - ignore
+      }
+    }
+    else if(action == 'F')
+    {
+      const char code = data[index];
+      pwmFreqValues frequency;
+      if(code >= '0' && code <= '9' &&
+         PWM::frequencyFromIndex(code - '0', frequency))
+      {
+        motor0.setFrequency(frequency);
+      }
     }
   }
 }

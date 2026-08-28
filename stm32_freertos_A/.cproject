@@ -97,6 +97,7 @@
 									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F"/>
 									<listOptionValue builtIn="false" value="../Components/PWM"/>
 									<listOptionValue builtIn="false" value="../Components/Motor/TC78H611FNG"/>
+									<listOptionValue builtIn="false" value="../Components/Motor/L293D"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp.1808744961" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp"/>
 							</tool>

@@ -38,6 +38,12 @@ class PWM
     void setFrequency(pwmFreqValues frequency);
     pwmFreqValues getFrequency() const;
 
+    // Maps a 0-based index onto pwmFreqValues in enum order, for command
+    // interfaces that select a frequency by position. Returns false, and
+    // leaves frequency untouched, if the index is out of range.
+    static bool frequencyFromIndex(uint8_t index, pwmFreqValues& frequency);
+    static uint8_t frequencyCount();
+
   private:
     // Per-timer state, shared by every PWM instance/channel that lives on
     // that timer. All channels of one timer share its prescaler/period,

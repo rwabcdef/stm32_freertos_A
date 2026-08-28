@@ -233,3 +233,28 @@ pwmFreqValues PWM::getFrequency() const
 {
   return frequency;
 }
+
+// pwmFreqValues in enum order - index N is the Nth selectable frequency.
+// Keep this in step with the enum in PWM.hpp.
+static const pwmFreqValues pwmFrequencyList[] =
+{
+  PWM_FREQ_100HZ,
+  PWM_FREQ_500HZ,
+  PWM_FREQ_1KHZ,
+  PWM_FREQ_2KHZ
+};
+
+uint8_t PWM::frequencyCount()
+{
+  return static_cast<uint8_t>(sizeof(pwmFrequencyList) / sizeof(pwmFrequencyList[0]));
+}
+
+bool PWM::frequencyFromIndex(uint8_t index, pwmFreqValues& value)
+{
+  if(index >= frequencyCount())
+  {
+    return false;
+  }
+  value = pwmFrequencyList[index];
+  return true;
+}
