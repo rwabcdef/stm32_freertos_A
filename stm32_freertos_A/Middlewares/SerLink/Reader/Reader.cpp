@@ -82,7 +82,8 @@ uint8_t Reader::idle()
       // pass the received frame to the consumer queue if it exists
       if(this->consumerQueue != nullptr)
       {
-        this->rxFrameMsg.frame.copy(&this->rxFrame);
+        // copy the received frame into the rxFrameMsg and send it to the consumer queue
+        this->rxFrame.copy(&this->rxFrameMsg.frame);
         this->rxFrameMsg.type = FrameMsg::TYPE_RX;
 
         xQueueSend(this->consumerQueue, &this->rxFrameMsg, 0);
